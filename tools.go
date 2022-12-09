@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -93,7 +95,12 @@ func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) (
 					return nil, err
 				}
 
-				defer infile.Close()
+				defer func(infile multipart.File) {
+					err := infile.Close()
+					if err != nil {
+
+					}
+				}(infile)
 
 				buff := make([]byte, 512)
 				_, err = infile.Read(buff)
@@ -132,7 +139,12 @@ func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) (
 				uploadedFile.OriginalFileName = hdr.Filename
 
 				var outfile *os.File
-				defer outfile.Close()
+				defer func(outfile *os.File) {
+					err := outfile.Close()
+					if err != nil {
+
+					}
+				}(outfile)
 
 				if outfile, err := os.Create(filepath.Join(uploadDir, uploadedFile.NewFileName)); err != nil {
 					return nil, err
@@ -183,4 +195,14 @@ func (t *Tools) Slugify(s string) (string, error) {
 	}
 
 	return slug, nil
+}
+
+// DownloadStaticFile it downloads a file and tries to force the browser to avoid displaying it in the browser window,
+// It also allows specification of the display name
+func (t *Tools) DownloadStaticFile(w http.ResponseWriter, r *http.Request, p, file, displayName string) {
+	fp := path.Join(p, file)
+
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", displayName))
+
+	http.ServeFile(w, r, fp)
 }

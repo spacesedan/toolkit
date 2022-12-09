@@ -43,7 +43,12 @@ func TestTools_UploadFiles(t *testing.T) {
 		wg.Add(1)
 
 		go func() {
-			defer writer.Close()
+			defer func(writer *multipart.Writer) {
+				err := writer.Close()
+				if err != nil {
+
+				}
+			}(writer)
 			defer wg.Done()
 
 			// create the form data field 'file'
@@ -57,7 +62,12 @@ func TestTools_UploadFiles(t *testing.T) {
 				t.Error(err)
 			}
 
-			defer f.Close()
+			defer func(f *os.File) {
+				err := f.Close()
+				if err != nil {
+
+				}
+			}(f)
 
 			img, _, err := image.Decode(f)
 			if err != nil {
@@ -106,7 +116,12 @@ func TestTools_UploadOneFile(t *testing.T) {
 	writer := multipart.NewWriter(pw)
 
 	go func() {
-		defer writer.Close()
+		defer func(writer *multipart.Writer) {
+			err := writer.Close()
+			if err != nil {
+
+			}
+		}(writer)
 
 		// create the form data field 'file'
 		part, err := writer.CreateFormFile("file", "./testdata/img.png")
@@ -119,7 +134,12 @@ func TestTools_UploadOneFile(t *testing.T) {
 			t.Error(err)
 		}
 
-		defer f.Close()
+		defer func(f *os.File) {
+			err := f.Close()
+			if err != nil {
+
+			}
+		}(f)
 
 		img, _, err := image.Decode(f)
 		if err != nil {
@@ -196,5 +216,35 @@ func TestTools_Slugify(t *testing.T) {
 		if !e.errorExpected && slug != e.expected {
 			t.Errorf("%s: wrong slug returned; expected %s, but got %s", e.name, e.expected, slug)
 		}
+	}
+}
+
+func TestTools_DownloadStaticFile(t *testing.T) {
+	rr := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	var testTools Tools
+
+	testTools.DownloadStaticFile(rr, r, "./testdata", "test.pdf", "passed.pdf")
+
+	res := rr.Result()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+
+		}
+	}(res.Body)
+
+	if res.Header["Content-Length"][0] != "2071792" {
+		t.Error("wrong content length of", res.Header["Content-Length"][0])
+	}
+
+	if res.Header["Content-Disposition"][0] != "attachment; filename=\"passed.pdf\"" {
+		t.Error("wrong content disposition")
+	}
+
+	_, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Error(err)
 	}
 }
